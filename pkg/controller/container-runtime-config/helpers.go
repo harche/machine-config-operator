@@ -195,6 +195,15 @@ func updateCRIOConfig(data []byte, internal *mcfgv1.ContainerRuntimeConfiguratio
 	if internal.PidsLimit > 0 {
 		tomlConf.Crio.Runtime.PidsLimit = internal.PidsLimit
 	}
+	if internal.Runtimes != nil && len(internal.Runtimes) > 0 {
+		runtimes := crioconfig.Runtimes{}
+		for k, v := range internal.Runtimes {
+			r := crioconfig.RuntimeHandler{}
+			r.RuntimePath = v
+			runtimes[k] = &r
+		}
+		tomlConf.Crio.Runtime.Runtimes = runtimes
+	}
 	if internal.LogSizeMax.Value() != 0 {
 		tomlConf.Crio.Runtime.LogSizeMax = internal.LogSizeMax.Value()
 	}

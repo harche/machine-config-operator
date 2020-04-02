@@ -419,6 +419,12 @@ type ContainerRuntimeConfiguration struct {
 	// pidsLimit specifies the maximum number of processes allowed in a container
 	PidsLimit int64 `json:"pidsLimit,omitempty"`
 
+	// Runtimes defines a list of OCI compatible runtimes. The runtime to
+	// use is picked based on the runtime_handler provided by the CRI. If
+	// no runtime_handler is provided, the runtime will be picked based on
+	// the level of trust of the workload.
+	Runtimes map[string]string `json:"runtimes,omitempty"`
+
 	// logLevel specifies the verbosity of the logs based on the level it is set to.
 	// Options are fatal, panic, error, warn, info, and debug.
 	LogLevel string `json:"logLevel,omitempty"`
