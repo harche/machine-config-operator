@@ -80,6 +80,7 @@ var map_ContainerRuntimeConfiguration = map[string]string{
 	"logSizeMax":     "logSizeMax specifies the Maximum size allowed for the container log file. Negative numbers indicate that no size limit is imposed. If it is positive, it must be >= 8192 to match/exceed conmon's read buffer.",
 	"overlaySize":    "overlaySize specifies the maximum size of a container image. This flag can be used to set quota on the size of container images. (default: 10GB)",
 	"defaultRuntime": "defaultRuntime is the name of the OCI runtime to be used as the default for containers. Allowed values are `runc` and `crun`. When set to `runc`, OpenShift will use runc to execute the container When set to `crun`, OpenShift will use crun to execute the container When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time. Currently, the default is `crun`.",
+	"useHardLinks":   "useHardLinks instructs the container storage to use hard links rather than creating new copies of files in the image, if an identical file already exists in storage. This can significantly reduce disk usage, especially on Single Node OpenShift (SNO) deployments with constrained disk space. When set to true, storage will attempt to hard link identical files. When omitted or set to false, storage uses the default behavior of copying files.",
 }
 
 func (ContainerRuntimeConfiguration) SwaggerDoc() map[string]string {

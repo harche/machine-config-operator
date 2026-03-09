@@ -178,6 +178,11 @@ func (in *ContainerRuntimeConfiguration) DeepCopyInto(out *ContainerRuntimeConfi
 		x := (*in).DeepCopy()
 		*out = &x
 	}
+	if in.UseHardLinks != nil {
+		in, out := &in.UseHardLinks, &out.UseHardLinks
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

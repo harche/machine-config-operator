@@ -892,6 +892,15 @@ type ContainerRuntimeConfiguration struct {
 	// +kubebuilder:validation:Enum=crun;runc
 	// +optional
 	DefaultRuntime ContainerRuntimeDefaultRuntime `json:"defaultRuntime,omitempty"`
+
+	// useHardLinks instructs the container storage to use hard links rather than
+	// creating new copies of files in the image, if an identical file already exists
+	// in storage. This can significantly reduce disk usage, especially on Single Node
+	// OpenShift (SNO) deployments with constrained disk space.
+	// When set to true, storage will attempt to hard link identical files.
+	// When omitted or set to false, storage uses the default behavior of copying files.
+	// +optional
+	UseHardLinks *bool `json:"useHardLinks,omitempty"`
 }
 
 type ContainerRuntimeDefaultRuntime string

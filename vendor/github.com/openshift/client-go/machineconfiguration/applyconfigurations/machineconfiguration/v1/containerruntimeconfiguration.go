@@ -15,6 +15,7 @@ type ContainerRuntimeConfigurationApplyConfiguration struct {
 	LogSizeMax     *resource.Quantity                                     `json:"logSizeMax,omitempty"`
 	OverlaySize    *resource.Quantity                                     `json:"overlaySize,omitempty"`
 	DefaultRuntime *machineconfigurationv1.ContainerRuntimeDefaultRuntime `json:"defaultRuntime,omitempty"`
+	UseHardLinks   *bool                                                  `json:"useHardLinks,omitempty"`
 }
 
 // ContainerRuntimeConfigurationApplyConfiguration constructs a declarative configuration of the ContainerRuntimeConfiguration type for use with
@@ -60,5 +61,13 @@ func (b *ContainerRuntimeConfigurationApplyConfiguration) WithOverlaySize(value 
 // If called multiple times, the DefaultRuntime field is set to the value of the last call.
 func (b *ContainerRuntimeConfigurationApplyConfiguration) WithDefaultRuntime(value machineconfigurationv1.ContainerRuntimeDefaultRuntime) *ContainerRuntimeConfigurationApplyConfiguration {
 	b.DefaultRuntime = &value
+	return b
+}
+
+// WithUseHardLinks sets the UseHardLinks field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the UseHardLinks field is set to the value of the last call.
+func (b *ContainerRuntimeConfigurationApplyConfiguration) WithUseHardLinks(value bool) *ContainerRuntimeConfigurationApplyConfiguration {
+	b.UseHardLinks = &value
 	return b
 }

@@ -387,6 +387,13 @@ func updateStorageConfig(data []byte, internal *mcfgv1.ContainerRuntimeConfigura
 		}
 	}
 
+	if internal.UseHardLinks != nil {
+		if tomlConf.Storage.Options.PullOptions == nil {
+			tomlConf.Storage.Options.PullOptions = map[string]string{}
+		}
+		tomlConf.Storage.Options.PullOptions["use_hard_links"] = strconv.FormatBool(*internal.UseHardLinks)
+	}
+
 	var newData bytes.Buffer
 	encoder := toml.NewEncoder(&newData)
 	if err := encoder.Encode(*tomlConf); err != nil {

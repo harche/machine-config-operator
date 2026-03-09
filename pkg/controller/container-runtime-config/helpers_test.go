@@ -1299,6 +1299,8 @@ func TestUpdateStorageConfig(t *testing.T) {
 
 	zeroOverLayerSize := resource.MustParse("0k")
 	validOverLaySize := resource.MustParse("10G")
+	useHardLinksTrue := true
+	useHardLinksFalse := false
 
 	tests := []struct {
 		name string
@@ -1331,6 +1333,51 @@ func TestUpdateStorageConfig(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "apply useHardLinks true",
+			cfg: &mcfgv1.ContainerRuntimeConfiguration{
+				UseHardLinks: &useHardLinksTrue,
+			},
+			want: tomlConfigStorage{
+				Storage: struct {
+					Driver    string                                "toml:\"driver\""
+					RunRoot   string                                "toml:\"runroot\""
+					GraphRoot string                                "toml:\"graphroot\""
+					Options   struct{ storageconfig.OptionsConfig } "toml:\"options\""
+				}{
+					Options: struct{ storageconfig.OptionsConfig }{
+						storageconfig.OptionsConfig{
+							PullOptions: map[string]string{"use_hard_links": "true"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "apply useHardLinks false",
+			cfg: &mcfgv1.ContainerRuntimeConfiguration{
+				UseHardLinks: &useHardLinksFalse,
+			},
+			want: tomlConfigStorage{
+				Storage: struct {
+					Driver    string                                "toml:\"driver\""
+					RunRoot   string                                "toml:\"runroot\""
+					GraphRoot string                                "toml:\"graphroot\""
+					Options   struct{ storageconfig.OptionsConfig } "toml:\"options\""
+				}{
+					Options: struct{ storageconfig.OptionsConfig }{
+						storageconfig.OptionsConfig{
+							PullOptions: map[string]string{"use_hard_links": "false"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "not apply useHardLinks when nil",
+			cfg:  &mcfgv1.ContainerRuntimeConfiguration{},
+			want: tomlConfigStorage{},
 		},
 	}
 
