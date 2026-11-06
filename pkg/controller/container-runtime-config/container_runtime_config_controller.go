@@ -1230,6 +1230,7 @@ func registriesConfigIgnition(templateDir string, controllerConfig *mcfgv1.Contr
 		policyJSON                   []byte
 		sigstoreRegistriesConfigYaml []byte
 		namespacedPolicyJSONs        map[string][]byte
+		clusterImagePolicyFragment   []byte
 		err                          error
 	)
 
@@ -1269,6 +1270,22 @@ func registriesConfigIgnition(templateDir string, controllerConfig *mcfgv1.Contr
 		if err != nil {
 			return nil, fmt.Errorf("could not update namespace policy JSON from imagepolicy: %w", err)
 		}
+		if policyDropInsEnabled {
+			// ClusterImagePolicy scopes go to a drop-in fragment; CRI-O composes it with
+			// policy.json and with every /etc/crio/policies/<ns>.json.
+			clusterImagePolicyFragment, err = generateClusterImagePolicyFragment(clusterScopePolicies)
+			if err != nil {
+				return nil, fmt.Errorf("could not generate ClusterImagePolicy policy fragment: %w", err)
+			}
+			if err := validatePolicyFragmentAgainstBase(policyConfigPath, policyJSON, clusterImagePolicyFragmentPath, clusterImagePolicyFragment); err != nil {
+				return nil, err
+			}
+			for ns, data := range namespacedPolicyJSONs {
+				if err := validatePolicyFragmentAgainstBase(fmt.Sprintf(namespacedPolicyFilePathFormat, ns), data, clusterImagePolicyFragmentPath, clusterImagePolicyFragment); err != nil {
+					return nil, err
+				}
+			}
+		}
 		// generates configuration under /etc/containers/registries.d to enable sigstore verification
 		sigstoreRegistriesConfigYaml, err = generateSigstoreRegistriesdConfig(clusterScopePolicies, scopeNamespacePolicies, registriesTOML)
 		if err != nil {
@@ -1280,6 +1297,7 @@ func registriesConfigIgnition(templateDir string, controllerConfig *mcfgv1.Contr
 		{filePath: registriesConfigPath, data: registriesTOML},
 		{filePath: policyConfigPath, data: policyJSON},
 		{filePath: sigstoreRegistriesConfigFilePath, data: sigstoreRegistriesConfigYaml},
+		{filePath: clusterImagePolicyFragmentPath, data: clusterImagePolicyFragment},
 	}
 	generatedImagePolicyConfigFileList := imagePolicyConfigFileList(namespacedPolicyJSONs)
 	generatedConfigFileList = append(generatedConfigFileList, generatedImagePolicyConfigFileList...)

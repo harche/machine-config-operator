@@ -103,6 +103,9 @@ const (
 	// changes to /etc/crio/policies will cause a crio reload
 	CrioPoliciesDir = "/etc/crio/policies"
 
+	// changes to signature policy drop-in fragments will cause a crio reload (PoC, OCPSTRAT-3988)
+	ContainerRegistryPolicyDropInDir = "/etc/containers/policy.json.d"
+
 	// changes to openshift-config-user-ca-bundle.crt will cause an update-ca-trust and crio restart
 	UserCABundlePath = "/etc/pki/ca-trust/source/anchors/openshift-config-user-ca-bundle.crt"
 

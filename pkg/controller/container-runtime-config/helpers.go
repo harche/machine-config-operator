@@ -50,6 +50,9 @@ const (
 	registriesConfigPath                   = "/etc/containers/registries.conf"
 	searchRegDropInFilePath                = "/etc/containers/registries.conf.d/01-image-searchRegistries.conf"
 	policyConfigPath                       = "/etc/containers/policy.json"
+	// clusterImagePolicyFragmentPath is the drop-in fragment that holds all ClusterImagePolicy scopes
+	// when policyDropInsEnabled is set (PoC, OCPSTRAT-3988).
+	clusterImagePolicyFragmentPath = "/etc/containers/policy.json.d/50-openshift-clusterimagepolicy.json"
 	// CRIODropInFilePathLogLevel is the path at which changes to the crio config for log-level
 	// will be dropped in this is exported so that we can use it in the e2e-tests
 	CRIODropInFilePathLogLevel   = "/etc/crio/crio.conf.d/01-ctrcfg-logLevel"
@@ -627,7 +630,7 @@ func updatePolicyJSON(data []byte, internalBlocked, internalAllowed []string, re
 	// Return original data if neither allowed or blocked registries or clusterimagepolicy are configured
 	// Note: this ensures that the genetateNamespacedPolicyJSONs can inherite the cluster wide template policy.json, the controller does not call this function till
 	// allowed or blocked registries or clusterimagepolicy or imagepolicy are configured
-	if internalAllowed == nil && internalBlocked == nil && len(clusterScopePolicies) == 0 {
+	if internalAllowed == nil && internalBlocked == nil && (len(clusterScopePolicies) == 0 || policyDropInsEnabled) {
 		return data, nil
 	}
 
@@ -667,8 +670,12 @@ func updatePolicyJSON(data []byte, internalBlocked, internalAllowed []string, re
 		}
 	}
 
-	for scope, requirement := range clusterScopePolicies {
-		transportScopes[scope] = append(transportScopes[scope], requirement...)
+	// With policy drop-ins, ClusterImagePolicy scopes go to their own fragment file
+	// (see generateClusterImagePolicyFragment), not into policy.json.
+	if !policyDropInsEnabled {
+		for scope, requirement := range clusterScopePolicies {
+			transportScopes[scope] = append(transportScopes[scope], requirement...)
+		}
 	}
 
 	if len(transportScopes) > 0 {
@@ -1607,4 +1614,83 @@ func wrapErrorWithCRIOCredentialProviderConfigCondition(err error, conditionType
 		reason,
 		message,
 	)
+}
+
+// policyDropInsEnabled switches ClusterImagePolicy rendering from "merged into
+// /etc/containers/policy.json" to a separate drop-in fragment in
+// /etc/containers/policy.json.d. PoC for OCPSTRAT-3988: a real implementation
+// would use a feature gate and must only turn this on for nodes whose CRI-O /
+// container-libs compose drop-ins; an older CRI-O would silently ignore the
+// fragment and not enforce ClusterImagePolicy.
+var policyDropInsEnabled = false
+
+// policyFragment is the JSON shape of a drop-in fragment: a policy without "default".
+type policyFragment struct {
+	Transports map[string]signature.PolicyTransportScopes `json:"transports"`
+}
+
+// generateClusterImagePolicyFragment renders all ClusterImagePolicy scopes as one
+// drop-in fragment. It returns nil when there are no ClusterImagePolicy scopes, so
+// the file is not written (and removed from nodes that had it).
+func generateClusterImagePolicyFragment(clusterScopePolicies map[string]signature.PolicyRequirements) ([]byte, error) {
+	if len(clusterScopePolicies) == 0 {
+		return nil, nil
+	}
+	docker := signature.PolicyTransportScopes{}
+	atomic := signature.PolicyTransportScopes{}
+	for scope, requirements := range clusterScopePolicies {
+		docker[scope] = requirements
+		// Same rule as updatePolicyJSON: "atomic" does not support three or more scope segments.
+		if strings.Count(scope, "/") < 3 {
+			atomic[scope] = requirements
+		}
+	}
+	frag := policyFragment{Transports: map[string]signature.PolicyTransportScopes{"docker": docker}}
+	if len(atomic) > 0 {
+		frag.Transports["atomic"] = atomic
+	}
+	return json.MarshalIndent(frag, "", "  ")
+}
+
+// validatePolicyFragmentAgainstBase mirrors the node-side composition rule: a
+// (transport, scope) may be defined in only one file. MCO checks this before
+// writing files, so a bad combination degrades the ContainerRuntimeConfig /
+// image config controller instead of failing every image pull on the node.
+// "default" and the transport-wide "" scope must not appear in a fragment.
+func validatePolicyFragmentAgainstBase(baseName string, base []byte, fragmentName string, fragment []byte) error {
+	if len(fragment) == 0 {
+		return nil
+	}
+	var b struct {
+		Transports map[string]map[string]json.RawMessage `json:"transports"`
+	}
+	if err := json.Unmarshal(base, &b); err != nil {
+		return fmt.Errorf("decoding %s: %w", baseName, err)
+	}
+	var f struct {
+		Default    json.RawMessage                       `json:"default"`
+		Transports map[string]map[string]json.RawMessage `json:"transports"`
+	}
+	if err := json.Unmarshal(fragment, &f); err != nil {
+		return fmt.Errorf("decoding %s: %w", fragmentName, err)
+	}
+	if f.Default != nil {
+		return fmt.Errorf("%s: \"default\" may only be set in the base policy", fragmentName)
+	}
+	var dups []string
+	for transport, scopes := range f.Transports {
+		for scope := range scopes {
+			if scope == "" {
+				return fmt.Errorf("%s: transport %q: the \"\" scope may only be set in the base policy", fragmentName, transport)
+			}
+			if _, ok := b.Transports[transport][scope]; ok {
+				dups = append(dups, transport+":"+scope)
+			}
+		}
+	}
+	if len(dups) > 0 {
+		sort.Strings(dups)
+		return fmt.Errorf("policy scopes %v are defined in both %s and %s", dups, baseName, fragmentName)
+	}
+	return nil
 }

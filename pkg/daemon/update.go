@@ -622,6 +622,7 @@ func calculatePostConfigChangeActionFromMCDiffs(diffFileSet []string) (actions [
 	}
 	dirsPostConfigChangeActionReloadCrio := []string{
 		constants.SigstoreRegistriesConfigDir,
+		constants.ContainerRegistryPolicyDropInDir,
 	}
 
 	actions = []string{postConfigChangeActionNone}
