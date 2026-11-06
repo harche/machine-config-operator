@@ -99,7 +99,9 @@ func TestPolicyDropInsRendersClusterImagePolicyAsFragment(t *testing.T) {
 
 	ns := decodePolicyDoc(t, files["/etc/crio/policies/ns1.json"])
 	assert.Contains(t, ns.Transports["docker"], "quay.io/ns-only")
-	assert.NotContains(t, ns.Transports["docker"], "quay.io/cip", "namespace files no longer copy CIP scopes; CRI-O composes the fragment")
+	assert.NotContains(t, ns.Transports["docker"], "quay.io/cip", "namespace files no longer copy CIP scopes; CRI-O layers them")
+	assert.Nil(t, ns.Default, "namespace layer inherits the cluster default")
+	assert.NotContains(t, ns.Transports, "docker-daemon", "no copy of the cluster policy")
 }
 
 func TestPolicyDropInsNoClusterImagePolicyNoFragment(t *testing.T) {

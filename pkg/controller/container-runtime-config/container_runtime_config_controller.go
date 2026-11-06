@@ -1280,11 +1280,8 @@ func registriesConfigIgnition(templateDir string, controllerConfig *mcfgv1.Contr
 			if err := validatePolicyFragmentAgainstBase(policyConfigPath, policyJSON, clusterImagePolicyFragmentPath, clusterImagePolicyFragment); err != nil {
 				return nil, err
 			}
-			for ns, data := range namespacedPolicyJSONs {
-				if err := validatePolicyFragmentAgainstBase(fmt.Sprintf(namespacedPolicyFilePathFormat, ns), data, clusterImagePolicyFragmentPath, clusterImagePolicyFragment); err != nil {
-					return nil, err
-				}
-			}
+			// Namespace files are a separate layer on top of the cluster policy in CRI-O
+			// (namespace scopes AND enclosing or equal cluster scopes), so no duplicate check.
 		}
 		// generates configuration under /etc/containers/registries.d to enable sigstore verification
 		sigstoreRegistriesConfigYaml, err = generateSigstoreRegistriesdConfig(clusterScopePolicies, scopeNamespacePolicies, registriesTOML)

@@ -1356,6 +1356,32 @@ func updateNamespacedPolicyJSONs(clusterOverridePolicyJSON []byte, internalBlock
 
 	namespacedPolicyJSONs := make(map[string][]byte)
 
+	if policyDropInsEnabled {
+		// Namespace layer only: CRI-O layers <namespace>.json on top of the cluster policy
+		// (policy.json + policy.json.d), so the file holds only this namespace's ImagePolicy
+		// scopes. No "default" (inherited from the cluster) and no copy of cluster scopes.
+		for namespace, requirements := range namespacedPolicies {
+			docker := signature.PolicyTransportScopes{}
+			atomic := signature.PolicyTransportScopes{}
+			for scope, reqs := range requirements {
+				docker[scope] = reqs
+				if strings.Count(scope, "/") < 3 {
+					atomic[scope] = reqs
+				}
+			}
+			layer := policyFragment{Transports: map[string]signature.PolicyTransportScopes{"docker": docker}}
+			if len(atomic) > 0 {
+				layer.Transports["atomic"] = atomic
+			}
+			data, err := json.MarshalIndent(layer, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("error marshalling namespace policy layer: %w", err)
+			}
+			namespacedPolicyJSONs[namespace] = data
+		}
+		return namespacedPolicyJSONs, nil
+	}
+
 	for namespace, requirements := range namespacedPolicies {
 
 		policyObj := &signature.Policy{}
